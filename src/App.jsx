@@ -1,126 +1,90 @@
-import { useState, useRef } from 'react';
+/*Вопросы по реализации задачи через React Hook Form и Yup:
+1. Не понятно как реализовать фокусирование без использования хука useEffect, который еще не проходили
+2. Не понятно как реализовать различные события для разных ситуаций валидации onChange и onBlur
+ */
+import { useEffect, useRef } from 'react';
 import styles from './App.module.css';
+import * as yup from 'yup';
+import { useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+
+const fieldsSchema = yup.object().shape({
+	email: yup
+		.string()
+		.email('Некорректный email'),
+	password: yup
+		.string()
+		.min(8, 'Пароль должен быть не короче 8 символов')
+		.matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/,
+			'Пароль должен содержать буквы в верхнем и нижнем регистре, цифру и символ'),
+	passwordConfirmation: yup
+		.string()
+		.oneOf([yup.ref('password')], 'Пароли не совпадают'),
+});
 
 export const App = () => {
-	const [formData, setFormData] = useState({
-		email: '',
-		password: '',
-		passwordConfirmation: '',
-	});
-	const [errorEmail, setErrorEmail] = useState(null);
-	const [errorPassword, setErrorPassword] = useState(null);
 	const submitButtonRef = useRef(null);
 
-	const onSubmit = (event) => {
-		event.preventDefault();
+	const {
+		register,
+		handleSubmit,
+		formState: { errors, isValid },
+	} = useForm({
+		defaultValues: {
+			email: '',
+			password: '',
+			passwordConfirmation: '',
+		},
+		mode: 'onChange',
+		resolver: yupResolver(fieldsSchema),
+	});
+
+	useEffect(() => {
+		if (isValid) {
+			submitButtonRef.current?.focus();
+		}
+	}, [isValid]);
+
+	const onSubmit = (formData) => {
 		console.log(formData);
 	};
 
-	const onLoginChange = ({ target }) => {
-		setFormData({ ...formData, email: target.value });
-
-		let error = null;
-		const emailInputRegex = /^[a-zA-Z0-9._@-]*$/;
-
-		if (!emailInputRegex.test(target.value)) {
-			error =
-				'Неверная почта. Допустимые символы - буквы, цифры и нижнее подчеркивание, точка и @';
-		}
-		setErrorEmail(error);
-	};
-
-	const onLoginBlur = () => {
-		const emailRegex = /^[\w\.-]+@[\w\.-]+\.\w{2,}$/;
-		if (!emailRegex.test(formData.email)) {
-			setErrorEmail(
-				'Неверная почта. Проверьте на ошибки email. Наличие @ и доменной зоны.',
-			);
-		}
-	};
-
-	const onPasswordChange = ({ target }) => {
-		setFormData({ ...formData, password: target.value });
-		setErrorPassword(null);
-	};
-
-	const onPasswordBlur = ({ target }) => {
-		let error = null;
-		const passwordRegex =
-			/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-
-		if (!passwordRegex.test(target.value)) {
-			error =
-				'Пароль должен содержать буквы в нижнем и верхнем регистре, цифру, специальный символ и быть не короче 8 символов.';
-		} else if (
-			formData.passwordConfirmation !== target.value &&
-			formData.passwordConfirmation
-		) {
-			error = 'Пароли не совпадают';
-		}
-		setErrorPassword(error);
-	};
-
-	const onConfirmationPasswordChange = ({ target }) => {
-		setFormData({ ...formData, passwordConfirmation: target.value });
-		if (formData.password === target.value && target.value) {
-			submitButtonRef.current.focus();
-		}
-		setErrorPassword(null);
-	};
-
-	const onConfirmationPasswordBlur = ({ target }) => {
-		if (formData.password !== target.value && target.value) {
-			setErrorPassword('Пароли не совпадают');
-		} else {
-			setErrorPassword(null);
-		}
-	};
-
-	const errorStatus = errorEmail || errorPassword;
-
 	return (
 		<div className={styles.container}>
-			<form className={styles.form} onSubmit={onSubmit}>
+			<form className={styles.form} onSubmit={handleSubmit(onSubmit)}>
 				<input
 					className={styles.input}
 					type="email"
-					name="email"
-					id="email"
 					placeholder="Email"
-					value={formData.email}
-					onChange={onLoginChange}
-					onBlur={onLoginBlur}
+					{...register('email')}
 				/>
-				{errorEmail && <span className={styles.span}>{errorEmail}</span>}
+				{errors.email && <span className={styles.span}>{errors.email.message}</span>}
 				<br />
 				<input
 					className={styles.input}
 					type="password"
-					name="password"
-					id="password"
 					placeholder="Password"
-					value={formData.password}
-					onChange={onPasswordChange}
-					onBlur={onPasswordBlur}
+					{...register('password')}
 				/>
-				{errorPassword && <span className={styles.span}>{errorPassword}</span>}
+				{errors.password && (
+					<span className={styles.span}>{errors.password.message}</span>
+				)}
 				<br />
 				<input
 					className={styles.input}
 					type="password"
-					name="confirm_password"
-					id="confirm_password"
 					placeholder="Confirm Password"
-					value={formData.passwordConfirmation}
-					onChange={onConfirmationPasswordChange}
-					onBlur={onConfirmationPasswordBlur}
+					{...register('passwordConfirmation')}
 				/>
+				{errors.passwordConfirmation && (
+					<span className={styles.span}>{errors.passwordConfirmation.message}</span>
+				)}
 				<br />
 				<button
 					className={styles.button}
 					type="submit"
 					ref={submitButtonRef}
-					disabled={errorStatus}
+					disabled={!isValid}
 				>
 					Submit
 				</button>
